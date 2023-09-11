@@ -1,18 +1,18 @@
-const baileys = require('@whiskeysockets/baileys');
-const qrcode = require("qrcode");
+import { useMultiFileAuthState, fetchLatestBaileysVersion, makeWASocket, Browsers, DisconnectReason } from '@whiskeysockets/baileys';
+import qrcode from "qrcode";
 
 async function connectToWhatsApp() {
-  const { state, saveCreds } = await baileys.useMultiFileAuthState(
+  const { state, saveCreds } = await useMultiFileAuthState(
     'baileys_auth_info'
   );
   // fetch latest version of WA Web
-  const { version, isLatest } = await baileys.fetchLatestBaileysVersion();
+  const { version, isLatest } = await fetchLatestBaileysVersion();
   console.log(`using WA v${version.join('.')}, isLatest: ${isLatest}`);
 
-  const socket = baileys.makeWASocket({
+  const socket = makeWASocket({
     // can provide additional config here
     // printQRInTerminal: true,
-    browser: baileys.Browsers.macOS('Desktop'),
+    browser: Browsers.macOS('Desktop'),
     auth: state,
   });
 
@@ -20,10 +20,14 @@ async function connectToWhatsApp() {
 
   socket.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update;
+    if (qr) {
+      console.log('QR ===> ', qr);
+      qrcode.toBuffer(qr).then(img => console.log(img))
+    }
     if (connection === 'close') {
       const shouldReconnect =
         lastDisconnect.error?.output?.statusCode !==
-        baileys.DisconnectReason.loggedOut;
+        DisconnectReason.loggedOut;
       console.log(
         'connection closed due to ',
         lastDisconnect.error,
@@ -49,4 +53,4 @@ async function connectToWhatsApp() {
   });
 }
 // run in main file
-module.export = connectToWhatsApp;
+connectToWhatsApp()

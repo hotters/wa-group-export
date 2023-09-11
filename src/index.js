@@ -1,27 +1,5 @@
-import React, { useState } from "react";
-import ReactDOM from "react-dom";
+import { createRoot } from 'react-dom/client';
+import App from './App';
 
-const apiUrl = 'http://localhost:'
-
-function App() {
-    const [qr, setQr] = useState('');
-    const [loading, setLoading] = useState(false);
-    const logIn = () => {
-        setLoading(true);
-        fetch('http://localhost:3001/qr').then(res => res.blob()).then(res => {
-            setQr(URL.createObjectURL(res));
-            setLoading(false);
-        })
-    }
-
-  return (
-    <div className="App">
-      <button onClick={() => {}}>Log In</button>
-      {loading && 'Loading...'}
-      {qr && <img src={qr} />}
-    </div>
-  );
-}
-
-const rootElement = document.getElementById("root");
-ReactDOM.render(<App />, rootElement);
+const root = createRoot(document.getElementById('root'));
+root.render(<App />);

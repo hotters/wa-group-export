@@ -1,23 +1,41 @@
-const path = require('path');
 const express = require('express');
+const { WA } = require('./waa.js');
+const qrcode = require('qrcode');
+const expressWs = require('express-ws');
+const cors = require('cors');
+
 const app = express();
-const port = 3001;
+const ews = expressWs(app);
+const port = 4000;
 
+function msg(type, payload) {
+  return JSON.stringify({ type, payload });
+}
 
-app.use(express.static(path.join(__dirname, 'public')));
+const wa = new WA();
+app.use(cors());
 
-app.get('/qr', (req, res) => {
-    req.send('qr');
-});
-
-app.get('/groups', (req, res) => {
-    req.send('groups');
-});
-
-app.get('/groups/:groupId', (req, res) => {
-    res.send(req.params.groupId);
+app.ws('/api', async (ws, req) => {
+  ws.send(msg('init', 'init'));
+  await wa.init(
+    (qr) => {
+      qrcode.toBuffer(qr).then((img) => {
+        ws.send(img);
+      });
+    },
+    (msgs) => {
+      ws.send(msg('messages', msgs));
+    },
+    (g) => {
+      console.log('groups', g);
+      ws.send(msg('groups', g));
+    }
+  );
+  // const group = await wa.getGroup('');
+  // console.log('GROUP MEMBERS: ', group);
+  // ws.send(msg('group', group));
 });
 
 app.listen(port, () => {
-    console.log(`server running on port ${port}`);
+  console.log(`server running on port ${port}`);
 });
