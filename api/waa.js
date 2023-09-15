@@ -10,7 +10,7 @@ class WA {
   /** @type {WASocket} */
   socket;
 
-  async init(onQR, onHistory, onGroups) {
+  async init(onMessage) {
     const { state, saveCreds } = await useMultiFileAuthState(
       'baileys_auth_info'
     );
@@ -29,7 +29,7 @@ class WA {
         console.log(`\nStatus: ${connection}`, update);
 
         if (qr) {
-          onQR(qr);
+          onMessage('qr', qr);
         }
 
         if (connection === 'close') {
@@ -44,7 +44,7 @@ class WA {
       });
 
       this.socket.ev.on('messaging-history.set', async (history) => {
-        onHistory?.(history);
+        onMessage('history', history);
       });
     });
   }
