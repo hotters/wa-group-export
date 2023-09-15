@@ -23,13 +23,13 @@ app.ws('/api', async (ws, req) => {
   const repeat = async () => {
     const code = await wa.init(onMessage);
     if (code === 515) {
-      console.log('\n\n[repeat]\n\n');
+      console.log('\n\n[REPEAT]\n\n');
       return await repeat();
     }
   };
 
   ws.on('message', async (data) => {
-    console.log('[server msg]', data);
+    console.log('\n[server msg]', data);
 
     if (data === 'init') {
       await repeat();

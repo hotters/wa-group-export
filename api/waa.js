@@ -11,6 +11,8 @@ class WA {
   /** @type {WASocket} */
   socket;
   store = makeInMemoryStore({});
+  chats = [];
+  contacts = [];
 
   constructor(statePath, filePath) {
     this.statePath = statePath;
@@ -32,19 +34,34 @@ class WA {
 
     this.socket.ev.on('chats.upsert', () => {
       const chats = this.store.chats.all();
-      console.log('\n\n[got chats] ', chats.length);
-      onMessage('chats', chats);
+      console.log('\n[got chats] ', chats.length);
+      // onMessage('chats', chats);
     });
 
     this.socket.ev.on('contacts.upsert', () => {
       const contacts = Object.values(this.store.contacts);
-      console.log('\n\n[got contacts] ', contacts.length);
+      console.log('\n[got contacts] ', contacts.length);
       onMessage('contacts', contacts);
     });
 
     this.socket.ev.on('messaging-history.set', (history) => {
-      console.log('[history]', history.isLatest);
-      // onMessage('history', history);
+      console.log('\n[got history]', {
+        chats: history.chats.length,
+        contacts: history.contacts.length,
+        messages: history.messages.length,
+        isLatest: history.isLatest,
+      });
+      const { chats, contacts } = history;
+      if (chats.length > this.chats.length) {
+        this.chats = chats;
+        onMessage('chats', this.chats);
+        console.log('[sent chats]', this.chats.length);
+      }
+      if (contacts.length > this.contacts.length) {
+        this.contacts = contacts;
+        onMessage('contacts', this.contacts);
+        console.log('[sent contacts]', this.contacts.length);
+      }
     });
 
     return new Promise((res) => {

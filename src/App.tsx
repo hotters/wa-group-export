@@ -9,7 +9,7 @@ export default function App() {
   const [loading, setLoading] = useState(null);
 
   const [chats, setChats] = useState([]);
-  const [contacts, setContacts] = useState([]);
+  const [contacts, setContacts] = useState({});
 
   const [participants, setParticipants] = useState();
   const [group, setGroup] = useState();
@@ -50,12 +50,13 @@ export default function App() {
           break;
 
         case 'chats':
-          // setChats((prev) => prev.concat(...msg.payload));
           setChats(msg.payload);
           break;
 
         case 'contacts':
-          setContacts((prev) => prev.concat(...msg.payload));
+          const newContacts = { ...contacts };
+          msg.payload.forEach((contact) => (newContacts[contact.id] = contact));
+          setContacts(newContacts);
           break;
 
         case 'history':
@@ -154,11 +155,10 @@ function History({ chats, onExport }) {
 function Contacts({ contacts, participants, group }) {
   const data = useMemo(() => {
     return participants.map(({ id, admin }) => {
-      const contact = contacts?.find((c) => c.id === id);
+      const contact = Object.values<{ id; name }>(contacts)?.find((c) => c.id === id);
       return {
         phone: `+${id.split('@')[0]}`,
-        contact: contact?.name,
-        nick: contact?.notify,
+        name: contact?.name,
         admin,
       };
     });
