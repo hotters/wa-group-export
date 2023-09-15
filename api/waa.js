@@ -1,5 +1,6 @@
 const {
   makeWASocket,
+  makeInMemoryStore,
   useMultiFileAuthState,
   Browsers,
   DisconnectReason,
@@ -9,20 +10,44 @@ const {
 class WA {
   /** @type {WASocket} */
   socket;
+  store = makeInMemoryStore({});
+
+  constructor(statePath, filePath) {
+    this.statePath = statePath;
+    this.filePath = filePath;
+  }
 
   async init(onMessage) {
-    const { state, saveCreds } = await useMultiFileAuthState(
-      'baileys_auth_info'
-    );
+    const { state, saveCreds } = await useMultiFileAuthState(this.statePath);
 
     this.socket = makeWASocket({
       browser: Browsers.macOS('Desktop'),
       auth: state,
+      syncFullHistory: true,
     });
 
-    return new Promise((res, rej) => {
-      this.socket.ev.on('creds.update', saveCreds);
+    this.store.bind(this.socket.ev);
 
+    this.socket.ev.on('creds.update', saveCreds);
+
+    this.socket.ev.on('chats.upsert', () => {
+      const chats = this.store.chats.all();
+      console.log('\n\n[got chats] ', chats.length);
+      onMessage('chats', chats);
+    });
+
+    this.socket.ev.on('contacts.upsert', () => {
+      const contacts = Object.values(this.store.contacts);
+      console.log('\n\n[got contacts] ', contacts.length);
+      onMessage('contacts', contacts);
+    });
+
+    this.socket.ev.on('messaging-history.set', (history) => {
+      console.log('[history]', history.isLatest);
+      // onMessage('history', history);
+    });
+
+    return new Promise((res) => {
       this.socket.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
 
@@ -33,23 +58,23 @@ class WA {
         }
 
         if (connection === 'close') {
-          console.log('\nConnection closed. Error: ', lastDisconnect.error);
-          rej();
-        } 
-        
+          const code = lastDisconnect.error?.output?.statusCode;
+          const message = lastDisconnect.error?.message;
+          console.log('\nConnection closed! Error: ', code, message);
+          onMessage('error', { code, message });
+          res(code);
+        }
+
         if (connection === 'open') {
           console.log('\nConnection opened!');
           res();
         }
       });
-
-      this.socket.ev.on('messaging-history.set', async (history) => {
-        onMessage('history', history);
-      });
     });
   }
 
   async getGroup(id) {
+    console.log('[get group]', id);
     return await this.socket.groupMetadata(id);
   }
 }
