@@ -58,6 +58,10 @@ ews.app.ws('/api', async (ws, req) => {
       }
     }
   });
+
+  ws.onclose = (e) => {
+    console.log('Someone disconnected');
+  };
 });
 
 app.listen(port, () => {
