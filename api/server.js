@@ -15,16 +15,19 @@ app.use(cors());
 
 const wa = new WA(statePath, filePath);
 
-ews.getWss().on('connection', (e) => {
-  console.log('Someone connected');
+ews.getWss().on('connection', (ws, req) => {
+  ws.onclose = (e) => {
+    console.log('SOMEONE DISCONNECTED');
+  };
+
+  console.log('SOMEONE CONNECTED');
+  console.log('MAX CONNECTIONS: ', ws.getMaxListeners());
 });
 
 ews.app.ws('/api', async (ws, req) => {
   const onMessage = (type, payload) => {
     ws.send(msg(type, payload));
   };
-
-  console.log('MAX LISTNERS: ', ws.getMaxListeners(), ws.listeners());
 
   const repeat = async () => {
     const code = await wa.init(onMessage);
@@ -58,10 +61,6 @@ ews.app.ws('/api', async (ws, req) => {
       }
     }
   });
-
-  ws.onclose = (e) => {
-    console.log('Someone disconnected');
-  };
 });
 
 app.listen(port, () => {
