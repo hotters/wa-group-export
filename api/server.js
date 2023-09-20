@@ -1,13 +1,13 @@
-const fs = require('fs');
-const path = require('path');
-const express = require('express');
-const { WA } = require('./waa.js');
-const expressWs = require('express-ws');
-const cors = require('cors');
+const fs = require("fs");
+const path = require("path");
+const express = require("express");
+const { WA } = require("./waa.js");
+const expressWs = require("express-ws");
+const cors = require("cors");
 
 const port = 4000;
-const statePath = 'baileys_auth_info';
-const filePath = './baileys_store.json';
+const statePath = "baileys_auth_info";
+const filePath = "./baileys_store.json";
 
 const app = express();
 const ews = expressWs(app);
@@ -15,40 +15,42 @@ app.use(cors());
 
 const wa = new WA(statePath, filePath);
 
-app.ws('/api', async (ws, req) => {
+ews.app.ws("/api", async (ws, req) => {
   const onMessage = (type, payload) => {
     ws.send(msg(type, payload));
   };
 
+  console.log("MAX LISTNERS: ", ws.getMaxListeners(), ws.listeners());
+
   const repeat = async () => {
     const code = await wa.init(onMessage);
     if (code === 515) {
-      console.log('\n\n[REPEAT]\n\n');
+      console.log("\n\n[REPEAT]\n\n");
       return await repeat();
     }
   };
 
-  ws.on('message', async (data) => {
-    console.log('\n[server msg]', data);
+  ws.on("message", async (data) => {
+    console.log("\n[server msg]", data);
 
-    if (data === 'init') {
+    if (data === "init") {
       await repeat();
-      ws.send(msg('init'));
+      ws.send(msg("init"));
     }
 
-    if (data === 'reset') {
+    if (data === "reset") {
       fs.rmSync(path.resolve(statePath), { recursive: true, force: true });
       fs.rmSync(path.resolve(filePath), { force: true });
-      ws.send(msg('reset'));
+      ws.send(msg("reset"));
     }
 
-    if (data.startsWith('id')) {
+    if (data.startsWith("id")) {
       try {
-        const id = data.split(':')[1];
+        const id = data.split(":")[1];
         const group = await wa.getGroup(id);
-        ws.send(msg('group', group));
+        ws.send(msg("group", group));
       } catch (e) {
-        ws.send(msg('error', e.message));
+        ws.send(msg("error", e.message));
       }
     }
   });
@@ -61,6 +63,6 @@ app.listen(port, () => {
 function msg(type, payload = null) {
   return JSON.stringify({ type, payload });
 }
-process.on('uncaughtException', (err) => {
-  console.error('[Uncaught Exception]', err);
+process.on("uncaughtException", (err) => {
+  console.error("[Uncaught Exception]", err);
 });

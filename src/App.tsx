@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Button, Card, Container } from 'semantic-ui-react';
-import { Contacts, History, QRCode } from './components';
-import { WsMessage } from './types';
+import { useEffect, useState } from "react";
+import { Button, Card, Container } from "semantic-ui-react";
+import { Contacts, History, QRCode } from "./components";
+import { WsMessage } from "./types";
 
 export default function App() {
   const [qr, setQr] = useState();
@@ -16,18 +16,20 @@ export default function App() {
 
   const start = () => {
     setLoading(true);
-    webSocket.send('init');
+    webSocket.send("init");
   };
 
   const reset = () => {
-    webSocket.send('reset');
+    webSocket.send("reset");
     setQr(null);
   };
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:4000/api');
+    const ws = new WebSocket("ws://localhost:4000/api");
 
-    ws.addEventListener('open', () => {
+    console.log("ws readyState", ws.readyState);
+
+    ws.addEventListener("open", () => {
       setWebSocket(ws);
       setLoading(false);
     });
@@ -38,43 +40,43 @@ export default function App() {
       console.log(`[${msg.type}]`, msg.payload);
 
       switch (msg.type) {
-        case 'qr':
+        case "qr":
           setQr(msg.payload);
           break;
 
-        case 'init':
+        case "init":
           break;
 
-        case 'group':
+        case "group":
           setParticipants(msg.payload?.participants);
           break;
 
-        case 'chats':
+        case "chats":
           setChats(msg.payload);
           break;
 
-        case 'contacts':
+        case "contacts":
           const newContacts = { ...contacts };
           msg.payload.forEach((contact) => (newContacts[contact.id] = contact));
           setContacts(newContacts);
           break;
 
-        case 'history':
+        case "history":
           if (msg.payload.isLatest) {
             setChats(msg.payload.chats);
             setContacts(msg.payload.contacts);
           }
           break;
 
-        case 'error':
+        case "error":
           setQr(null);
           break;
 
-        case 'reset':
+        case "reset":
           break;
 
         default:
-          console.log('No handlers for: ', msg.type);
+          console.log("No handlers for: ", msg.type);
           break;
       }
 
@@ -102,10 +104,16 @@ export default function App() {
           <QRCode qr={qr} />
         </Card>
       ) : null}
-      <History chats={chats} onExport={onExport} />
-      {participants && group ? (
-        <Contacts contacts={contacts} participants={participants} group={group} />
-      ) : null}
+      <Container>
+        <History chats={chats} onExport={onExport} />
+        {participants && group ? (
+          <Contacts
+            contacts={contacts}
+            participants={participants}
+            group={group}
+          />
+        ) : null}
+      </Container>
     </Container>
   );
 }

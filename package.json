@@ -24,6 +24,7 @@
     "semantic-ui-react": "^2.1.4"
   },
   "devDependencies": {
+    "@types/express-ws": "^3.0.1",
     "@types/jquery": "3.5.16",
     "@types/node": "^18.17.14",
     "@types/qrcode": "^1.5.2",
