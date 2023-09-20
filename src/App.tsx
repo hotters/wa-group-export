@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
-import { Button, Card, Container } from "semantic-ui-react";
-import { Contacts, History, QRCode } from "./components";
-import { WsMessage } from "./types";
+import { useState } from 'react';
+import { Button, Card, Container } from 'semantic-ui-react';
+import { Contacts, History, QRCode } from './components';
+import { WsMessage } from './types';
 
 export default function App() {
   const [qr, setQr] = useState();
   const [webSocket, setWebSocket] = useState<WebSocket | null>();
-  const [loading, setLoading] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const [chats, setChats] = useState([]);
   const [contacts, setContacts] = useState({});
@@ -16,23 +16,14 @@ export default function App() {
 
   const start = () => {
     setLoading(true);
-    webSocket.send("init");
-  };
+    const ws = new WebSocket('ws://localhost:4000/api');
 
-  const reset = () => {
-    webSocket.send("reset");
-    setQr(null);
-  };
+    console.log('ws readyState', ws.readyState);
 
-  useEffect(() => {
-    const ws = new WebSocket("ws://localhost:4000/api");
-
-    console.log("ws readyState", ws.readyState);
-
-    ws.addEventListener("open", () => {
+    ws.onopen = () => {
       setWebSocket(ws);
-      setLoading(false);
-    });
+      ws.send('init');
+    };
 
     ws.onmessage = (e) => {
       const msg: WsMessage = JSON.parse(e.data);
@@ -40,49 +31,56 @@ export default function App() {
       console.log(`[${msg.type}]`, msg.payload);
 
       switch (msg.type) {
-        case "qr":
+        case 'qr':
           setQr(msg.payload);
           break;
 
-        case "init":
+        case 'init':
           break;
 
-        case "group":
+        case 'group':
           setParticipants(msg.payload?.participants);
           break;
 
-        case "chats":
+        case 'chats':
           setChats(msg.payload);
           break;
 
-        case "contacts":
+        case 'contacts':
           const newContacts = { ...contacts };
           msg.payload.forEach((contact) => (newContacts[contact.id] = contact));
           setContacts(newContacts);
           break;
 
-        case "history":
+        case 'history':
           if (msg.payload.isLatest) {
             setChats(msg.payload.chats);
             setContacts(msg.payload.contacts);
           }
           break;
 
-        case "error":
+        case 'error':
           setQr(null);
           break;
 
-        case "reset":
+        case 'reset':
           break;
 
         default:
-          console.log("No handlers for: ", msg.type);
+          console.log('No handlers for: ', msg.type);
           break;
       }
 
       setLoading(false);
     };
-  }, []);
+  };
+
+  const reset = () => {
+    webSocket.send('reset');
+    webSocket.close();
+    setQr(null);
+    setWebSocket(null);
+  };
 
   const onExport = (group) => {
     webSocket.send(`id:${group.id}`);
@@ -92,10 +90,10 @@ export default function App() {
   return (
     <Container>
       <Container>
-        <Button onClick={start} loading={loading} disabled={loading === null}>
+        <Button onClick={start} loading={loading} disabled={loading}>
           Start
         </Button>
-        <Button onClick={reset} disabled={loading === null}>
+        <Button onClick={reset} disabled={!webSocket}>
           Reset
         </Button>
       </Container>

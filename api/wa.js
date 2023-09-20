@@ -1,56 +1,99 @@
-import { useMultiFileAuthState, fetchLatestBaileysVersion, makeWASocket, Browsers, DisconnectReason } from '@whiskeysockets/baileys';
-import qrcode from "qrcode";
+const {
+  makeWASocket,
+  makeInMemoryStore,
+  useMultiFileAuthState,
+  Browsers,
+  DisconnectReason,
+  WASocket,
+} = require('@whiskeysockets/baileys');
 
-async function connectToWhatsApp() {
-  const { state, saveCreds } = await useMultiFileAuthState(
-    'baileys_auth_info'
-  );
-  // fetch latest version of WA Web
-  const { version, isLatest } = await fetchLatestBaileysVersion();
-  console.log(`using WA v${version.join('.')}, isLatest: ${isLatest}`);
+class WA {
+  /** @type {WASocket} */
+  socket;
+  store = makeInMemoryStore({});
+  chats = [];
+  contacts = [];
 
-  const socket = makeWASocket({
-    // can provide additional config here
-    // printQRInTerminal: true,
-    browser: Browsers.macOS('Desktop'),
-    auth: state,
-  });
+  constructor(statePath, filePath) {
+    this.statePath = statePath;
+    this.filePath = filePath;
+  }
 
-  socket.ev.on('creds.update', saveCreds);
+  async init(onMessage) {
+    const { state, saveCreds } = await useMultiFileAuthState(this.statePath);
 
-  socket.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect, qr } = update;
-    if (qr) {
-      console.log('QR ===> ', qr);
-      qrcode.toBuffer(qr).then(img => console.log(img))
-    }
-    if (connection === 'close') {
-      const shouldReconnect =
-        lastDisconnect.error?.output?.statusCode !==
-        DisconnectReason.loggedOut;
-      console.log(
-        'connection closed due to ',
-        lastDisconnect.error,
-        ', reconnecting ',
-        shouldReconnect
-      );
-      // reconnect if not logged out
-      if (shouldReconnect) {
-        connectToWhatsApp();
+    this.socket = makeWASocket({
+      browser: Browsers.macOS('Desktop'),
+      auth: state,
+      syncFullHistory: true,
+    });
+
+    this.store.bind(this.socket.ev);
+
+    this.socket.ev.on('creds.update', saveCreds);
+
+    this.socket.ev.on('chats.upsert', () => {
+      const chats = this.store.chats.all();
+      console.log('\n[got chats] ', chats.length);
+      // onMessage('chats', chats);
+    });
+
+    this.socket.ev.on('contacts.upsert', () => {
+      const contacts = Object.values(this.store.contacts);
+      console.log('\n[got contacts] ', contacts.length);
+      onMessage('contacts', contacts);
+    });
+
+    this.socket.ev.on('messaging-history.set', (history) => {
+      console.log('\n[got history]', {
+        chats: history.chats.length,
+        contacts: history.contacts.length,
+        messages: history.messages.length,
+        isLatest: history.isLatest,
+      });
+      const { chats, contacts } = history;
+      if (chats.length > this.chats.length) {
+        this.chats = chats;
+        onMessage('chats', this.chats);
+        console.log('[sent chats]', this.chats.length);
       }
-    } else if (connection === 'open') {
-      console.log('opened connection');
-    }
-  });
+      if (contacts.length > this.contacts.length) {
+        this.contacts = contacts;
+        onMessage('contacts', this.contacts);
+        console.log('[sent contacts]', this.contacts.length);
+      }
+    });
 
-  socket.ev.on('messages.upsert', async (m) => {
-    console.log(JSON.stringify(m, undefined, 2));
+    return new Promise((res) => {
+      this.socket.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect, qr } = update;
 
-    // console.log('replying to', m.messages[0].key.remoteJid);
-    // await sock.sendMessage(m.messages[0].key.remoteJid, {
-    //   text: 'Hello there!',
-    // });
-  });
+        console.log(`\nStatus: ${connection}`, update);
+
+        if (qr) {
+          onMessage('qr', qr);
+        }
+
+        if (connection === 'close') {
+          const code = lastDisconnect.error?.output?.statusCode;
+          const message = lastDisconnect.error?.message;
+          console.log('\nConnection closed! Error: ', code, message);
+          onMessage('error', { code, message });
+          res(code);
+        }
+
+        if (connection === 'open') {
+          console.log('\nConnection opened!');
+          res();
+        }
+      });
+    });
+  }
+
+  async getGroup(id) {
+    console.log('[get group]', id);
+    return await this.socket.groupMetadata(id);
+  }
 }
-// run in main file
-connectToWhatsApp()
+
+module.exports = { WA: WA };
